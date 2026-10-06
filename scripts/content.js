@@ -13,6 +13,17 @@ Promise.all([
     }, 750);
 });
 
+function analyze(text) {
+    // The request is made by the background service worker (see background.js)
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({type: 'xplain-analyze', text}, (res) => {
+            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+            if (!res || !res.ok) return reject(new Error((res && res.error) || 'No response from background worker'));
+            resolve(res.data);
+        });
+    });
+}
+
 function highlight(node, part, explanation, color) {
     const regex = new RegExp(`\\b(${part})\\b`, 'gi');
     console.log(node);
@@ -73,24 +84,21 @@ function hookIntoTweets() {
                 button.classList.add('analyzed');
 
                 // call analyze api with text
-                fetch("https://192.168.1.117:8000/analyze/", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({prompt: text})
-                }).then(response => response.json()).then(data => {
+                analyze(text).then(data => {
                     console.log("Response:", data);
                     // draw result + explanations
-                    if (data.hate_speech == "True") {
+                    if (String(data.hate_speech).toLowerCase() === "true") {
                         tweet.parentElement.classList.remove('hate-free-content');
                         tweet.parentElement.classList.add('hateful-content');
-                        data.explanations.forEach((explanation, i) => textNode.childNodes.forEach((element) => highlight(element, explanation.input, explanation.explanation, colors[i % 10])));
+                        (data.explanations || []).forEach((explanation, i) => textNode.childNodes.forEach((element) => highlight(element, explanation.input, explanation.explanation, colors[i % 10])));
                     } else {
                         tweet.parentElement.classList.add('hate-free-content');
                         tweet.parentElement.classList.remove('hateful-content');
                     }
                     
                 }).catch(error => {
-                    console.error("Error:", error);
+                    console.error("[xplain-hate]", error);
+                    button.classList.remove('analyzed');
                 });
             } else {
                 // already analyzed

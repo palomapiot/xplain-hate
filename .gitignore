@@ -1,0 +1,9 @@
+# local configuration (contains your own server address)
+.env
+scripts/config.js
+
+# downloaded model weights
+ollama/adapter/
+
+# OS files
+.DS_Store

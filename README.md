@@ -1,91 +1,117 @@
 # Xplain Hate 🔍
 
-Xplain Hate is a browser extension for X (formerly Twitter) that detects hate speech in tweets and explains why a message is hateful. It adds an analyze button to every tweet; when clicked, the tweet text is sent to the [Oh! API](https://github.com/palomapiot/oh-api) backend, and any hateful phrases are highlighted in the tweet, each with a hover explanation.
+Xplain Hate is a browser extension for X (formerly Twitter) that detects hate speech in tweets and explains why a message is hateful. It adds an analyze button to every tweet. When you click it, the tweet is analyzed by the [`Llama-3-8B-Distil-MetaHate`](https://huggingface.co/irlab-udc/Llama-3-8B-Distil-MetaHate) model running on an [Ollama](https://ollama.com) server, and the hateful phrases are highlighted in the tweet, each with a hover explanation.
 
-The project has two parts that you run separately:
+```
+┌────────────────┐  message   ┌───────────────────┐  HTTP /api/chat  ┌──────────────────────────┐
+│ x.com (tweet)  │ ─────────► │ extension service │ ───────────────► │ Ollama server            │
+│ content.js     │ ◄───────── │ worker            │ ◄─────────────── │ model: xplain-hate       │
+└────────────────┘  highlights└───────────────────┘   JSON answer    │ (Llama 3 8B + LoRA)      │
+                                                                     └──────────────────────────┘
+```
 
-| Part | Repository | What it does |
-|------|-----------|--------------|
-| **Extension** (this repo) | `xplain-hate` | Chrome extension (Manifest V3) that injects the analyze button and renders highlights and explanations on `x.com`. |
-| **Backend** | [`oh-api`](https://github.com/palomapiot/oh-api) | FastAPI service that runs a quantized Llama model and returns the classification and explanations. |
+The project has two parts that you set up separately:
 
----
+| Part | Where | What it does |
+|------|-------|--------------|
+| **Extension** | this repo | Chrome extension (Manifest V3) that adds the analyze button and renders highlights and explanations on `x.com`. |
+| **Model server** | this repo (`ollama/`, `docker-compose.yml`) | Ollama running the distilled hate speech model. |
 
-## How it works
-
-1. The extension adds an analyze button to every tweet on `https://x.com/*`.
-2. When you click it, the tweet text is sent to the backend (`POST /analyze/`).
-3. The backend classifies the message and generates step-by-step explanations.
-4. The extension marks the tweet as hateful or hate-free and highlights each offending phrase. Hover over a highlighted phrase to read its explanation.
+> Looking for a backend that also detects fake news and hyperpartisan content? See the related [Oh! API](https://github.com/palomapiot/oh-api) project. This extension talks to Ollama directly and does not use it.
 
 ---
 
 ## Prerequisites 📋
 
-**Backend (Oh! API)**
-
-- Docker with GPU support (the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html))
-- An NVIDIA GPU (the 4-bit Llama 3.1 8B model needs about 8 GB of GPU memory; an NVIDIA L4 works well)
-- A [Hugging Face](https://huggingface.co) account and access token (`HF_TOKEN`)
-
-**Extension**
-
-- A Chromium-based browser (Google Chrome, Edge, Brave...)
+- A Chromium-based browser (Chrome, Edge, Brave...)
+- [Ollama](https://ollama.com/download), **or** Docker with the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) if you prefer running it in a container
+- About 6 GB of free memory (GPU VRAM or RAM) and about 6 GB of disk for the model. A GPU is strongly recommended; on CPU each analysis can take a long time.
+- `curl` (used by the setup script to download the adapter)
 
 ---
 
-## Step 1: Run the backend 🚀
+## Step 1: Run the model with Ollama 🚀
 
-The backend lives in the [oh-api](https://github.com/palomapiot/oh-api) repository.
+The model on Hugging Face is a LoRA **adapter** on top of Llama 3 8B Instruct. The `ollama/Modelfile` in this repo combines both, and `ollama/setup.sh` downloads the adapter and creates a model called `xplain-hate`.
 
-1. Clone it and build the Docker image:
+Clone this repository first:
 
-   ```bash
-   git clone https://github.com/palomapiot/oh-api.git
-   cd oh-api
-   docker build -t oh-api .
-   ```
-
-2. Run the container (replace the token with your own):
-
-   ```bash
-   docker run -d --gpus all -p 8000:8000 -e HF_TOKEN="your_hugging_face_token" oh-api
-   ```
-
-   The first start downloads the model from Hugging Face, so it can take a few minutes.
-
-3. Check that it is up by opening `http://localhost:8000/`. You should see a message saying the model API is running.
-
-If the backend runs on another machine (for example a GPU server), use that machine's address in the next step instead of `localhost`.
-
-See the [oh-api README](https://github.com/palomapiot/oh-api#readme) for the full API reference.
-
----
-
-## Step 2: Point the extension to your backend 🔧
-
-The extension calls the backend at a URL defined in `scripts/content.js`. Search for the `fetch(` call to `/analyze/` and replace the host with the address of your backend:
-
-```js
-fetch("http://localhost:8000/analyze/", {
+```bash
+git clone https://github.com/palomapiot/xplain-hate.git
+cd xplain-hate
 ```
 
-Use the address and port where your Oh! API container is reachable from your browser (for example `http://localhost:8000` if it runs on your machine, or `http://<server-ip>:8000` if it runs elsewhere).
+### Option A: Ollama installed on the machine
+
+1. Install Ollama from [ollama.com/download](https://ollama.com/download).
+2. Start the server allowing the browser extension to connect (needed, otherwise Ollama answers `403`):
+
+   ```bash
+   OLLAMA_ORIGINS="chrome-extension://*" ollama serve
+   ```
+
+   If the server runs on another machine and you want to reach it over the network, also add `OLLAMA_HOST=0.0.0.0`. For the macOS app or a systemd service, set these variables in the app/service environment instead (see the [Ollama FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.md#how-do-i-configure-ollama-server)).
+3. In another terminal, create the model:
+
+   ```bash
+   ./ollama/setup.sh
+   ```
+
+### Option B: Ollama in Docker (NVIDIA GPU)
+
+```bash
+docker compose up -d
+./ollama/setup.sh --docker
+```
+
+`docker-compose.yml` already exposes port `11434` and sets `OLLAMA_ORIGINS`.
+
+> Docker on macOS cannot use the GPU. On a Mac, use Option A.
+
+### Check that it works
+
+```bash
+ollama run xplain-hate
+```
+
+or, against the HTTP API:
+
+```bash
+curl http://localhost:11434/api/tags
+```
+
+The list should contain `xplain-hate`.
+
+---
+
+## Step 2: Configure the extension ⚙️
+
+The address of the Ollama server is kept in a local `.env` file that is **not** committed to git, so your own IP never ends up in the repository.
+
+```bash
+cp .env.example .env      # then edit .env
+./scripts/generate-config.sh
+```
+
+`.env`:
+
+```bash
+# Use http://localhost:11434 if Ollama runs on the same machine as your browser,
+# or the IP/hostname of your server (e.g. http://192.168.1.50:11434).
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=xplain-hate
+```
+
+Chrome extensions cannot read `.env` files directly, so `generate-config.sh` converts it into `scripts/config.js` (also git-ignored). **Run it again whenever you change `.env`**, then reload the extension.
 
 ---
 
 ## Step 3: Install the extension in Chrome 🧩
 
-1. Clone this repository:
-
-   ```bash
-   git clone https://github.com/palomapiot/xplain-hate.git
-   ```
-
-2. Open `chrome://extensions` in your browser.
-3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select the root folder of this repository (the one containing `manifest.json`).
-5. Open [https://x.com](https://x.com), and you will see the Xplain Hate button next to the actions of each tweet.
+1. Open `chrome://extensions`.
+2. Enable **Developer mode** (top-right toggle).
+3. Click **Load unpacked** and select the root folder of this repository (the one containing `manifest.json`).
+4. Open [https://x.com](https://x.com). The Xplain Hate button appears next to the actions of each tweet.
 
 ---
 
@@ -100,38 +126,43 @@ Use the address and port where your Oh! API container is reachable from your bro
 
 ## Development 🛠️
 
-1. Update the backend endpoint in `scripts/content.js` (see Step 2).
-2. Enable **Developer mode** in `chrome://extensions`.
-3. Click **Load unpacked** and select the root folder of this repository.
-4. Make any changes to the source.
-5. Click the reload button on the extension card in `chrome://extensions`, then refresh the X tab.
-
-Project layout:
+1. Make your changes to the source.
+2. Click the reload button on the extension card in `chrome://extensions`, then refresh the X tab.
+3. To see errors from the service worker, click **service worker** on the extension card to open its DevTools console.
 
 ```
 xplain-hate/
-├── manifest.json        # Extension manifest (Manifest V3)
-├── credit.html          # Popup shown when clicking the extension icon
-├── scripts/content.js   # Injects the button, calls the API, highlights text
-├── styles/              # CSS for buttons, highlights and popups
-├── images/              # Button icons
-└── xplain.png           # Extension icon
+├── manifest.json            # Extension manifest (Manifest V3)
+├── credit.html              # Popup shown when clicking the extension icon
+├── scripts/
+│   ├── content.js           # Injects the button and highlights text on x.com
+│   ├── background.js        # Service worker: calls Ollama and parses the answer
+│   └── generate-config.sh   # Builds scripts/config.js from .env
+├── styles/                  # CSS for buttons, highlights and popups
+├── images/                  # Button icons
+├── ollama/
+│   ├── Modelfile            # Llama 3 8B Instruct + Distil-MetaHate adapter
+│   └── setup.sh             # Downloads the adapter and creates the model
+├── docker-compose.yml       # Ollama in Docker (NVIDIA GPU)
+└── .env.example             # Template for your local .env
 ```
 
 ---
 
 ## Troubleshooting
 
-- **Nothing happens when clicking the button**: open the browser DevTools console on the X tab and check for network errors. Confirm the backend is running and the URL in `scripts/content.js` is reachable from your browser.
-- **Request blocked by the browser**: because X is served over HTTPS, browsers may block calls to a plain `http://` backend that is not on `localhost`. In that case, serve the backend behind HTTPS (for example with a reverse proxy).
-- **Model fails to download**: make sure `HF_TOKEN` is valid and has access to the Llama model on Hugging Face.
+- **Nothing happens when clicking the button**: open the service worker console (see Development) and check for errors. Confirm that `OLLAMA_URL` in `.env` is reachable from your browser and that you ran `./scripts/generate-config.sh`.
+- **`403` from Ollama**: start Ollama with `OLLAMA_ORIGINS="chrome-extension://*"`.
+- **`404` from Ollama**: the `xplain-hate` model has not been created. Run `./ollama/setup.sh`.
+- **Connection refused from another machine**: Ollama listens on `localhost` only by default. Start it with `OLLAMA_HOST=0.0.0.0` (or use Docker, which publishes the port) and check your firewall.
+- **Answers are not valid or look degraded**: the adapter was trained on a 4-bit Llama 3 base. In `ollama/Modelfile`, try `FROM llama3:8b-instruct-q8_0` (or `-fp16`) and run `./ollama/setup.sh` again.
 - **Container can't see the GPU**: verify that `nvidia-smi` works on the host and that the NVIDIA Container Toolkit is installed.
 
 ---
 
 ## Citation 📑
 
-If you use this extension or the backend in your work, please cite:
+If you use this extension or the model in your work, please cite:
 
 ```bibtex
 @InProceedings{10.1007/978-3-031-88711-6_24,
@@ -152,6 +183,12 @@ If you use this extension or the backend in your work, please cite:
 ## Disclaimer ⚠️
 
 This project processes and displays content that may contain hate speech, offensive language, or other objectionable material. Detection and explanations are generated by a language model and may be wrong; they should not be used as the sole basis for moderation decisions. The project is intended for research, analysis, and educational purposes only.
+
+---
+
+## License
+
+The model is built on Meta Llama 3 and is subject to the [Llama 3 Community License](https://llama.meta.com/llama3/license/).
 
 ---
 

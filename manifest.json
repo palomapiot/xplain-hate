@@ -15,6 +15,13 @@
       ]
     }
   ],
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "host_permissions": [
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*"
+  ],
   "action": {
     "default_popup": "credit.html",
     "default_icon": "xplain.png"

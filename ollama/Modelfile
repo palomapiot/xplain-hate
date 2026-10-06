@@ -1,0 +1,17 @@
+# xplain-hate: Llama-3-8B-Instruct + the LoRA adapter from
+# https://huggingface.co/irlab-udc/Llama-3-8B-Distil-MetaHate
+#
+# The adapter was trained on Llama 3 (not 3.1) 8B Instruct, so the base must be
+# the same model. `llama3:8b` is a 4-bit build, close to the 4-bit base used for
+# training. If answers look degraded, try `llama3:8b-instruct-q8_0` or
+# `llama3:8b-instruct-fp16` (more memory).
+FROM llama3:8b
+
+# Directory with adapter_model.safetensors + adapter_config.json
+# (downloaded by ollama/setup.sh). Relative to this file.
+ADAPTER ./adapter
+
+PARAMETER temperature 0.01
+PARAMETER top_p 0.1
+PARAMETER top_k 5
+PARAMETER num_ctx 4096

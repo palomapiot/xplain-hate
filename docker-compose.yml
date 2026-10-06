@@ -1,0 +1,27 @@
+# Runs Ollama in Docker with an NVIDIA GPU.
+#   docker compose up -d
+#   ./ollama/setup.sh --docker
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: xplain-ollama
+    ports:
+      - "11434:11434"
+    environment:
+      # Allow requests coming from the browser extension
+      OLLAMA_ORIGINS: "chrome-extension://*"
+      OLLAMA_KEEP_ALIVE: "30m"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./ollama:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
