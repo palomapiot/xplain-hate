@@ -17,8 +17,6 @@ The project has two parts that you set up separately:
 | **Extension** | this repo | Chrome extension (Manifest V3) that adds the analyze button and renders highlights and explanations on `x.com`. |
 | **Model server** | this repo (`ollama/`, `docker-compose.yml`) | Ollama running the distilled hate speech model. |
 
-> Looking for a backend that also detects fake news and hyperpartisan content? See the related [Oh! API](https://github.com/palomapiot/oh-api) project. This extension talks to Ollama directly and does not use it.
-
 ---
 
 ## Prerequisites 📋
@@ -65,8 +63,6 @@ docker compose up -d
 ```
 
 `docker-compose.yml` already exposes port `11434` and sets `OLLAMA_ORIGINS`.
-
-> Docker on macOS cannot use the GPU. On a Mac, use Option A.
 
 ### Check that it works
 
@@ -118,7 +114,7 @@ Chrome extensions cannot read `.env` files directly, so `generate-config.sh` con
 ## Usage
 
 1. Browse X as usual.
-2. Click the Xplain Hate button on a tweet to analyze it.
+2. Click the Xplain Hate button on a tweet to analyse it.
 3. If the tweet is hateful, it is flagged and the offending phrases are highlighted. Hover over them to read the explanation.
 4. If it is not hateful, the tweet is marked as hate-free.
 
@@ -194,7 +190,7 @@ The model is built on Meta Llama 3 and is subject to the [Llama 3 Community Lice
 
 ## Acknowledgements 🙏
 
-Developed by [IRLab](https://www.irlab.org) (University of A Coruña). The authors thank Diego Sánchez Lamas for his contribution developing the extension. Funded by the Horizon Europe research and innovation programme under the Marie Skłodowska-Curie Grant Agreement No. 101073351, and by the CITIC Research Center and the project PID2022-137061OB-C21 (Ministerio de Ciencia e Innovación, ERDF). See the [oh-api README](https://github.com/palomapiot/oh-api#acknowledgements-) for the full acknowledgements.
+Developed by [IRLab](https://www.irlab.org) (University of A Coruña). The authors thank Diego Sánchez Lamas for his contribution to developing the extension. Funded by the Horizon Europe research and innovation programme under the Marie Skłodowska-Curie Grant Agreement No. 101073351, and by the CITIC Research Center and the project PID2022-137061OB-C21 (Ministerio de Ciencia e Innovación, ERDF).
 
 ---
 
