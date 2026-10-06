@@ -194,7 +194,7 @@ The model is built on Meta Llama 3 and is subject to the [Llama 3 Community Lice
 
 ## Acknowledgements 🙏
 
-Developed by [IRLab](https://www.irlab.org) (University of A Coruña). The authors thank Diego Sánchez Lamas for developing the extension. Funded by the Horizon Europe research and innovation programme under the Marie Skłodowska-Curie Grant Agreement No. 101073351, and by the CITIC Research Center and the project PID2022-137061OB-C21 (Ministerio de Ciencia e Innovación, ERDF). See the [oh-api README](https://github.com/palomapiot/oh-api#acknowledgements-) for the full acknowledgements.
+Developed by [IRLab](https://www.irlab.org) (University of A Coruña). The authors thank Diego Sánchez Lamas for his contribution developing the extension. Funded by the Horizon Europe research and innovation programme under the Marie Skłodowska-Curie Grant Agreement No. 101073351, and by the CITIC Research Center and the project PID2022-137061OB-C21 (Ministerio de Ciencia e Innovación, ERDF). See the [oh-api README](https://github.com/palomapiot/oh-api#acknowledgements-) for the full acknowledgements.
 
 ---
 
